@@ -1,0 +1,8 @@
+__pycache__/
+minimax_env/
+pytransform/
+observations/
+requirements_win.txt
+requirements.txt
+settings.yml
+README.md
