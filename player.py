@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import random
+import numpy as np
 
 from fishing_game_core.game_tree import Node
 from fishing_game_core.player_utils import PlayerController
@@ -67,3 +68,24 @@ class PlayerControllerMinimax(PlayerController):
 
         random_move = random.randrange(5)
         return ACTION_TO_STR[random_move]
+
+    def minimax(self, node, player):
+        
+        curr_state = node.state
+        # if all fishes have been caught :
+        if curr_state.player_scores[0] + curr_state.player_scores[1] == 25:
+            return curr_state.player_scores[0] - curr_state.player_scores[1]  # end of the game we have the real utility function
+
+        else:
+            if player == 0:
+                v = - np.inf
+                children = node.compute_and_get_children()
+                for child in children :
+                    v = max(v, minimax(self, child, 1))
+                return v
+            else:
+                v = np.inf
+                children = node.compute_and_get_children()
+                for child in children :
+                    v = min(v, minimax(self, child, 0))
+                return v
