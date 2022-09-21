@@ -47,14 +47,12 @@ class PlayerControllerMinimax(PlayerController):
             node = Node(message=msg, player=0)
 
             # Possible next moves: "stay", "left", "right", "up", "down"
-            t0 = time.time()
-            best_move = self.search_best_next_move(t0, initial_tree_node=node)
-            print(f"{np.round(time.time() - t0, 6)} s")
+            best_move = self.search_best_next_move(initial_tree_node=node)
 
             # Execute next action
             self.sender({"action": best_move, "search_time": None})
 
-    def search_best_next_move(self, t0, initial_tree_node):
+    def search_best_next_move(self, initial_tree_node):
         """
         Use minimax (and extensions) to find best possible next move for player 0 (green boat)
         :param initial_tree_node: Initial game tree node
@@ -68,22 +66,48 @@ class PlayerControllerMinimax(PlayerController):
 
         # NOTE: Don't forget to initialize the children of the current node
         #       with its compute_and_get_children() method!
-        children = initial_tree_node.compute_and_get_children()
-        values = [-np.inf] * len(children)
-        for i, child in enumerate(children):
-            values[i] = minimax(t0, child, 1, -np.inf, np.inf, max_depth=5)
-        index = values.index(max(values))  # Careful might have several move with same value
+        t0 = time.time()
+        depth_max = 0
+        last_timestamp = t0
+        last_computing_time = 0
+        sum_computing_time_factor = 0
+        condition = True
+        while condition:
+            depth_max += 1
+            children = initial_tree_node.compute_and_get_children()
+            values = [-np.inf] * len(children)
+            for i, child in enumerate(children):
+                values[i] = minimax(child, 1, -np.inf, np.inf, depth_max)
+            index = values.index(max(values))  # Careful might have several move with same value
+
+            # Updating parameters
+            actual_timestamp = time.time()
+            actual_computing_time = actual_timestamp - last_timestamp
+            if last_computing_time != 0:
+                sum_computing_time_factor += actual_computing_time / last_computing_time
+            last_computing_time = actual_computing_time
+            last_timestamp = actual_timestamp
+
+            if depth_max > 1:
+                condition = actual_timestamp - t0 < 0.05 and (sum_computing_time_factor/(depth_max - 1))*last_computing_time <= 0.075
+            else :
+                condition = actual_timestamp - t0 < 0.05
+
+            # print(f"Search at depth {depth_max} ended at timestamp : {np.round(time.time() - t0, 6)}s")
+
+        
+        print(f"Search stop at depth {depth_max} in {np.round(time.time() - t0, 6)}s")
 
         return ACTION_TO_STR[children[index].move]
 
 
 # Calculus fcts
-def minimax(t0, node, player, alpha, beta, max_depth=5):
+def minimax(node, player, alpha, beta, max_depth=5):
     
     curr_state = node.state
     remaining_fishes = sum(list(curr_state.fish_positions.keys()))
     # if all fishes have been caught :
-    if remaining_fishes == 0 or node.depth >= max_depth or time.time()-t0 >= 0.065:
+    if remaining_fishes == 0 or node.depth >= max_depth:
         return heuristic(node)  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else:
@@ -98,7 +122,7 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
             children = np.array(children)[np.argsort(children_score)[::-1]]
 
             for child in children:
-                v = max(v, minimax(t0, child, 1, alpha, beta, max_depth))
+                v = max(v, minimax(child, 1, alpha, beta, max_depth))
                 alpha = max(alpha, v)
                 if beta <= alpha:
                     break
@@ -113,7 +137,7 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
             children = np.array(children)[np.argsort(children_score)[::-1]]
 
             for child in children :
-                v = min(v, minimax(t0, child, 0, alpha, beta, max_depth))
+                v = min(v, minimax(child, 0, alpha, beta, max_depth))
                 beta = min(beta, v)
                 if beta <= alpha:
                     break
