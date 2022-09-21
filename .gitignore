@@ -2,6 +2,7 @@ __pycache__/
 minimax_env/
 pytransform/
 observations/
+.vscode/
 requirements_win.txt
 requirements.txt
 settings.yml
