@@ -69,16 +69,15 @@ class PlayerControllerMinimax(PlayerController):
         # NOTE: Don't forget to initialize the children of the current node
         #       with its compute_and_get_children() method!
         children = initial_tree_node.compute_and_get_children()
-        values = [0] * len(children)
+        values = [-np.inf] * len(children)
         for i, child in enumerate(children):
-            values[i] = minimax(t0, child, 1, -np.inf, np.inf, max_depth=5)
+            values[i] = minimax(t0, child, 1, -np.inf, np.inf, max_depth=7)
         index = values.index(max(values))  # Careful might have several move with same value
 
         return ACTION_TO_STR[children[index].move]
 
 
 # Calculus fcts
-
 def minimax(t0, node, player, alpha, beta, max_depth=5):
     
     curr_state = node.state
@@ -92,7 +91,7 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
             v = - np.inf
             children = node.compute_and_get_children()
             for child in children :
-                v = max(v, minimax(t0, child, alpha, beta, 1))
+                v = max(v, minimax(t0, child, 1, alpha, beta, max_depth))
                 alpha = max(alpha, v)
                 if beta <= alpha:
                     break
@@ -100,7 +99,7 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
             v = np.inf
             children = node.compute_and_get_children()
             for child in children :
-                v = min(v, minimax(t0, child, alpha, beta, 0))
+                v = min(v, minimax(t0, child, 0, alpha, beta, max_depth))
                 beta = min(beta, v)
                 if beta <= alpha:
                     break
