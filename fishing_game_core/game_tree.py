@@ -267,7 +267,12 @@ class Node:
             self.add_child(new_state, 1, self.depth+1, self.observations)
         else:
             # Any action is possible
-            for act in range(5):
+            range_list = [0,1,2,3,4]
+            counter_move_list = [0,2,1,4,3]
+            # if the node is not the root and the previous move was not a stay then we remove the countermove associated from the possible next moves
+            if self.move != None and self.move != 0:
+                range_list.remove(counter_move_list[self.move])
+            for act in range_list:
                 new_state = self.compute_next_state(
                     self.state, act, self.observations[self.depth])
                 self.add_child(new_state, act, self.depth+1, self.observations)
