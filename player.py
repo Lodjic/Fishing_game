@@ -49,7 +49,7 @@ class PlayerControllerMinimax(PlayerController):
             # Possible next moves: "stay", "left", "right", "up", "down"
             t0 = time.time()
             best_move = self.search_best_next_move(t0, initial_tree_node=node)
-            print(time.time() - t0)
+            print(f"{np.round(time.time() - t0, 6)} s")
 
             # Execute next action
             self.sender({"action": best_move, "search_time": None})
@@ -90,7 +90,14 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
         if player == 0:
             v = - np.inf
             children = node.compute_and_get_children()
-            for child in children :
+            
+            # Move ordering
+            children_score = [-np.inf] * len(children)
+            for i, child in enumerate(children) :
+                children_score[i] = heuristic(child)
+            children = np.array(children)[np.argsort(children_score)[::-1]]
+
+            for child in children:
                 v = max(v, minimax(t0, child, 1, alpha, beta, max_depth))
                 alpha = max(alpha, v)
                 if beta <= alpha:
@@ -98,6 +105,13 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
         else:
             v = np.inf
             children = node.compute_and_get_children()
+
+            # Move ordering
+            children_score = [-np.inf] * len(children)
+            for i, child in enumerate(children) :
+                children_score[i] = heuristic(child)
+            children = np.array(children)[np.argsort(children_score)[::-1]]
+
             for child in children :
                 v = min(v, minimax(t0, child, 0, alpha, beta, max_depth))
                 beta = min(beta, v)
@@ -113,10 +127,9 @@ def simple_heuristic(node):
     curr_score = curr_state.player_scores[0] - curr_state.player_scores[1]
     fish_caught_by_MAX = curr_state.player_caught[0]
     fish_caught_by_MIN = curr_state.player_caught[1]
-    # CAREFUL CAREFUL MAX AND MIN CAN CATCH A FISH TOGETHER
     if fish_caught_by_MAX != -1:
         curr_score += curr_state.fish_scores[fish_caught_by_MAX]
-    elif fish_caught_by_MIN != -1:
+    if fish_caught_by_MIN != -1:
         curr_score -= curr_state.fish_scores[fish_caught_by_MIN]
     return curr_score
 
@@ -133,7 +146,6 @@ def heuristic(node):
     fish_caught_by_MAX = curr_state.player_caught[0]
     fish_caught_by_MIN = curr_state.player_caught[1]
 
-    # CAREFUL CAREFUL MAX AND MIN CAN CATCH A FISH TOGETHER
     closests_fishes = get_closest_fish(curr_state)
     if fish_caught_by_MAX != -1:
         curr_score += curr_state.fish_scores[fish_caught_by_MAX]
@@ -145,6 +157,32 @@ def heuristic(node):
         curr_score -= curr_state.fish_scores[closests_fishes[1][0]] * ((19+10) - closests_fishes[1][1]) / (19+10)
 
     return curr_score
+
+def heuristic_enriched(node):
+    """
+    Calcultate the heuristic function for a player at a given state
+    """
+    curr_state = node.state
+    curr_score = curr_state.player_scores[0] - curr_state.player_scores[1]
+    
+    if sum(list(curr_state.fish_positions.keys())) == 0:
+        return curr_score
+    
+    fish_caught_by_MAX = curr_state.player_caught[0]
+    fish_caught_by_MIN = curr_state.player_caught[1]
+
+    closests_fishes = get_closest_fish(curr_state)
+    if fish_caught_by_MAX != -1:
+        MAX_has_fish = True
+        curr_score += curr_state.fish_scores[fish_caught_by_MAX]
+    else:
+        curr_score += curr_state.fish_scores[closests_fishes[0][0]] * ((19+10) - closests_fishes[0][1]) / (19+10)
+    if fish_caught_by_MIN != -1:
+        curr_score -= curr_state.fish_scores[fish_caught_by_MIN]
+    else: 
+        curr_score -= curr_state.fish_scores[closests_fishes[1][0]] * ((19+10) - closests_fishes[1][1]) / (19+10)
+
+    return curr_score, MAX_has_fish
 
 def norm_distance(position_array, p):
     """
