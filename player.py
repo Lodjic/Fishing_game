@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import random
 import numpy as np
+import time
 
 from fishing_game_core.game_tree import Node
 from fishing_game_core.player_utils import PlayerController
@@ -46,12 +47,14 @@ class PlayerControllerMinimax(PlayerController):
             node = Node(message=msg, player=0)
 
             # Possible next moves: "stay", "left", "right", "up", "down"
-            best_move = self.search_best_next_move(initial_tree_node=node)
+            t0 = time.time()
+            best_move = self.search_best_next_move(t0, initial_tree_node=node)
+            print(time.time() - t0)
 
             # Execute next action
             self.sender({"action": best_move, "search_time": None})
 
-    def search_best_next_move(self, initial_tree_node):
+    def search_best_next_move(self, t0, initial_tree_node):
         """
         Use minimax (and extensions) to find best possible next move for player 0 (green boat)
         :param initial_tree_node: Initial game tree node
@@ -68,7 +71,7 @@ class PlayerControllerMinimax(PlayerController):
         children = initial_tree_node.compute_and_get_children()
         values = [0] * len(children)
         for i, child in enumerate(children):
-            values[i] = minimax(child, 1, max_depth=2)
+            values[i] = minimax(t0, child, 1, -np.inf, np.inf, max_depth=5)
         index = values.index(max(values))  # Careful might have several move with same value
 
         return ACTION_TO_STR[children[index].move]
@@ -76,12 +79,12 @@ class PlayerControllerMinimax(PlayerController):
 
 # Calculus fcts
 
-def minimax(node, player, max_depth=5):
+def minimax(t0, node, player, alpha, beta, max_depth=5):
     
     curr_state = node.state
     remaining_points = sum(list(curr_state.fish_scores.values()))
     # if all fishes have been caught :
-    if remaining_points == 0 or node.depth >= max_depth:
+    if remaining_points == 0 or node.depth >= max_depth or time.time()-t0 >= 0.065:
         return heuristic(node)  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else:
@@ -89,14 +92,19 @@ def minimax(node, player, max_depth=5):
             v = - np.inf
             children = node.compute_and_get_children()
             for child in children :
-                v = max(v, minimax(child, 1))
-            return v
+                v = max(v, minimax(t0, child, alpha, beta, 1))
+                alpha = max(alpha, v)
+                if beta <= alpha:
+                    break
         else:
             v = np.inf
             children = node.compute_and_get_children()
             for child in children :
-                v = min(v, minimax(child, 0))
-            return v
+                v = min(v, minimax(t0, child, alpha, beta, 0))
+                beta = min(beta, v)
+                if beta <= alpha:
+                    break
+        return v
 
 def heuristic(node):
     """
@@ -104,17 +112,14 @@ def heuristic(node):
     """
     curr_state = node.state
     curr_score = curr_state.player_scores[0] - curr_state.player_scores[1]
-    total_points_collected = curr_state.player_scores[0] + curr_state.player_scores[1]
-    remaining_points = sum(list(curr_state.fish_scores.values()))
-    # if all fishes have been caught :
-    if remaining_points == 0:  # NOT REALLY THE RIGHT CONDITION : TBM !!!
-        return curr_score  # end of the game we have the real utility function
-    else:
-        remaining_fishes = list(curr_state.fish_positions.keys())
-        fish_scores = np.array([curr_state.fish_scores[i] for i in remaining_fishes])
-        closer_player = np.array(compute_closer_player_to_fish(curr_state))
-        mask0 = closer_player == 0
-        return curr_score + sum(fish_scores[mask0]) - sum(fish_scores[~mask0])
+    fish_caught_by_MAX = curr_state.player_caught[0]
+    fish_caught_by_MIN = curr_state.player_caught[1]
+    # CAREFUL CAREFUL MAX AND MIN CAN CATCH A FISH TOGETHER
+    if fish_caught_by_MAX != -1:
+        curr_score += curr_state.fish_scores[fish_caught_by_MAX]
+    elif fish_caught_by_MIN != -1:
+        curr_score -= curr_state.fish_scores[fish_caught_by_MIN]
+    return curr_score
         
 
 def norm2_distance(position_array, p):
