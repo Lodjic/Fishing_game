@@ -71,7 +71,7 @@ class PlayerControllerMinimax(PlayerController):
         children = initial_tree_node.compute_and_get_children()
         values = [-np.inf] * len(children)
         for i, child in enumerate(children):
-            values[i] = minimax(t0, child, 1, -np.inf, np.inf, max_depth=7)
+            values[i] = minimax(t0, child, 1, -np.inf, np.inf, max_depth=5)
         index = values.index(max(values))  # Careful might have several move with same value
 
         return ACTION_TO_STR[children[index].move]
@@ -81,9 +81,9 @@ class PlayerControllerMinimax(PlayerController):
 def minimax(t0, node, player, alpha, beta, max_depth=5):
     
     curr_state = node.state
-    remaining_points = sum(list(curr_state.fish_scores.values()))
+    remaining_fishes = sum(list(curr_state.fish_positions.keys()))
     # if all fishes have been caught :
-    if remaining_points == 0 or node.depth >= max_depth or time.time()-t0 >= 0.065:
+    if remaining_fishes == 0 or node.depth >= max_depth or time.time()-t0 >= 0.065:
         return heuristic(node)  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else:
@@ -105,7 +105,7 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
                     break
         return v
 
-def heuristic(node):
+def simple_heuristic(node):
     """
     Calcultate the heuristic function for a player at a given state
     """
@@ -119,15 +119,40 @@ def heuristic(node):
     elif fish_caught_by_MIN != -1:
         curr_score -= curr_state.fish_scores[fish_caught_by_MIN]
     return curr_score
-        
 
-def norm2_distance(position_array, p):
+def heuristic(node):
     """
-    Calculate the euclidian norm between 2 points in 2D
+    Calcultate the heuristic function for a player at a given state
     """
-    return np.sqrt((position_array[:, 1]-p[1]) ** 2 + (position_array[:, 0]-p[0]) ** 2)
+    curr_state = node.state
+    curr_score = curr_state.player_scores[0] - curr_state.player_scores[1]
+    
+    if sum(list(curr_state.fish_positions.keys())) == 0:
+        return curr_score
+    
+    fish_caught_by_MAX = curr_state.player_caught[0]
+    fish_caught_by_MIN = curr_state.player_caught[1]
 
-def norm2_distance_for_all_fishes(state, player):
+    # CAREFUL CAREFUL MAX AND MIN CAN CATCH A FISH TOGETHER
+    closests_fishes = get_closest_fish(curr_state)
+    if fish_caught_by_MAX != -1:
+        curr_score += curr_state.fish_scores[fish_caught_by_MAX]
+    else:
+        curr_score += curr_state.fish_scores[closests_fishes[0][0]] * ((19+10) - closests_fishes[0][1]) / (19+10)
+    if fish_caught_by_MIN != -1:
+        curr_score -= curr_state.fish_scores[fish_caught_by_MIN]
+    else: 
+        curr_score -= curr_state.fish_scores[closests_fishes[1][0]] * ((19+10) - closests_fishes[1][1]) / (19+10)
+
+    return curr_score
+
+def norm_distance(position_array, p):
+    """
+    Calculate the norm between 2 points in 2D
+    """
+    return abs(position_array[:, 1]-p[1]) + abs(position_array[:, 0]-p[0])
+
+def norm_distance_for_all_fishes(state, player):
     """
     Calculate the distance for all remaining fishes to the position of the player
     """
@@ -139,15 +164,24 @@ def norm2_distance_for_all_fishes(state, player):
     elif player_position[0] > 10:
         mask = fish_positions[:, 0] < (player_position[0] - 10)
         fish_positions[:, 0][mask] = -fish_positions[:, 0][mask]
-    return norm2_distance(fish_positions, player_position)
+    return norm_distance(fish_positions, player_position)
+
+def get_closest_fish(state):
+    distance_to_MAX = norm_distance_for_all_fishes(state, 0)
+    dist_to_MAX_argsorted = np.argsort(distance_to_MAX)
+    distance_to_MIN = norm_distance_for_all_fishes(state, 1)
+    dist_to_MIN_argsorted = np.argsort(distance_to_MIN)
+    ind_closest_fish_to_MAX = list(state.fish_positions.keys())[dist_to_MAX_argsorted[0]]  # we take the first one if several fishes are equidistant
+    ind_closest_fish_to_MIN = list(state.fish_positions.keys())[dist_to_MIN_argsorted[0]]
+    return ((ind_closest_fish_to_MAX, distance_to_MAX[dist_to_MAX_argsorted[0]]), (ind_closest_fish_to_MIN, distance_to_MIN[dist_to_MIN_argsorted[0]]))
 
 def compute_closer_player_to_fish(state):
-    distance_to_player_0 = norm2_distance_for_all_fishes(state, 0)
-    distance_to_player_1 = norm2_distance_for_all_fishes(state, 1)
+    distance_to_MAX = norm_distance_for_all_fishes(state, 0)
+    distance_to_MIN = norm_distance_for_all_fishes(state, 1)
     
-    closer_player = [0]*len(distance_to_player_0)
-    for i in range(len(distance_to_player_0)):
-        if distance_to_player_0[i] <= distance_to_player_1[i]:
+    closer_player = [0]*len(distance_to_MAX)
+    for i in range(len(distance_to_MAX)):
+        if distance_to_MAX[i] <= distance_to_MIN[i]:
             closer_player[i] = 1
     
     return closer_player
