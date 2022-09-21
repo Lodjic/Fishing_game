@@ -68,33 +68,18 @@ class PlayerControllerMinimax(PlayerController):
         #       with its compute_and_get_children() method!
         t0 = time.time()
         depth_max = 0
-        last_timestamp = t0
-        last_computing_time = 0
-        sum_computing_time_factor = 0
-        condition = True
-        while condition:
+        index = 0
+
+        while time.time() - t0 < 0.06 :
             depth_max += 1
             children = initial_tree_node.compute_and_get_children()
             values = [-np.inf] * len(children)
             for i, child in enumerate(children):
-                values[i] = minimax(child, 1, -np.inf, np.inf, depth_max)
-            index = values.index(max(values))  # Careful might have several move with same value
-
-            # Updating parameters
-            actual_timestamp = time.time()
-            actual_computing_time = actual_timestamp - last_timestamp
-            if last_computing_time != 0:
-                sum_computing_time_factor += actual_computing_time / last_computing_time
-            last_computing_time = actual_computing_time
-            last_timestamp = actual_timestamp
-
-            if depth_max > 1:
-                condition = actual_timestamp - t0 < 0.05 and (sum_computing_time_factor/(depth_max - 1))*last_computing_time <= 0.075
-            else :
-                condition = actual_timestamp - t0 < 0.05
+                values[i] = minimax(t0, child, 1, -np.inf, np.inf, depth_max)
+            if time.time() - t0 < 0.067:
+                index = values.index(max(values))  # Careful might have several move with same value
 
             # print(f"Search at depth {depth_max} ended at timestamp : {np.round(time.time() - t0, 6)}s")
-
         
         print(f"Search stop at depth {depth_max} in {np.round(time.time() - t0, 6)}s")
 
@@ -102,12 +87,14 @@ class PlayerControllerMinimax(PlayerController):
 
 
 # Calculus fcts
-def minimax(node, player, alpha, beta, max_depth=5):
+def minimax(t0, node, player, alpha, beta, max_depth=5):
     
     curr_state = node.state
     remaining_fishes = sum(list(curr_state.fish_positions.keys()))
     # if all fishes have been caught :
-    if remaining_fishes == 0 or node.depth >= max_depth:
+    if time.time() - t0 > 0.067:
+        return -np.inf
+    elif remaining_fishes == 0 or node.depth >= max_depth:
         return heuristic(node)  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else:
@@ -122,7 +109,7 @@ def minimax(node, player, alpha, beta, max_depth=5):
             children = np.array(children)[np.argsort(children_score)[::-1]]
 
             for child in children:
-                v = max(v, minimax(child, 1, alpha, beta, max_depth))
+                v = max(v, minimax(t0, child, 1, alpha, beta, max_depth))
                 alpha = max(alpha, v)
                 if beta <= alpha:
                     break
@@ -137,7 +124,7 @@ def minimax(node, player, alpha, beta, max_depth=5):
             children = np.array(children)[np.argsort(children_score)[::-1]]
 
             for child in children :
-                v = min(v, minimax(child, 0, alpha, beta, max_depth))
+                v = min(v, minimax(t0, child, 0, alpha, beta, max_depth))
                 beta = min(beta, v)
                 if beta <= alpha:
                     break
