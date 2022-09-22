@@ -224,14 +224,3 @@ def get_closest_fish(state):
     ind_closest_fish_to_MIN = list(state.fish_positions.keys())[dist_to_MIN_argsorted[0]]
     return ((ind_closest_fish_to_MAX, distance_to_MAX[dist_to_MAX_argsorted[0]]), (ind_closest_fish_to_MIN, distance_to_MIN[dist_to_MIN_argsorted[0]]))
 
-def compute_closer_player_to_fish(state):
-    distance_to_MAX = norm_distance_for_all_fishes(state, 0)
-    distance_to_MIN = norm_distance_for_all_fishes(state, 1)
-    
-    closer_player = [0]*len(distance_to_MAX)
-    for i in range(len(distance_to_MAX)):
-        if distance_to_MAX[i] <= distance_to_MIN[i]:
-            closer_player[i] = 1
-    
-    return closer_player
-
