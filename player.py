@@ -67,21 +67,21 @@ class PlayerControllerMinimax(PlayerController):
         # NOTE: Don't forget to initialize the children of the current node
         #       with its compute_and_get_children() method!
         t0 = time.time()
-        depth_max = 0
+        depth_max = 1
         index = 0
 
-        while time.time() - t0 < 0.06 :
+        while time.time() - t0 < 0.059 :
             depth_max += 1
             children = initial_tree_node.compute_and_get_children()
             values = [-np.inf] * len(children)
             for i, child in enumerate(children):
                 values[i] = minimax(t0, child, 1, -np.inf, np.inf, depth_max)
-            if time.time() - t0 < 0.067:
+            if time.time() - t0 < 0.059:
                 index = values.index(max(values))  # Careful might have several move with same value
 
             # print(f"Search at depth {depth_max} ended at timestamp : {np.round(time.time() - t0, 6)}s")
         
-        print(f"Search stop at depth {depth_max} in {np.round(time.time() - t0, 6)}s")
+        # print(f"Search stop at depth {depth_max} in {np.round(time.time() - t0, 6)}s")
 
         return ACTION_TO_STR[children[index].move]
 
@@ -90,17 +90,25 @@ class PlayerControllerMinimax(PlayerController):
 def minimax(t0, node, player, alpha, beta, max_depth=5):
     
     curr_state = node.state
-    remaining_fishes = sum(list(curr_state.fish_positions.keys()))
-    # if all fishes have been caught :
-    if time.time() - t0 > 0.067:
+    remaining_fishes = len(list(curr_state.fish_positions.keys()))
+    # If close to timeout we stop the search :
+    if time.time() - t0 > 0.059:
         return -np.inf
+    # if all fishes have been caught :
     elif remaining_fishes == 0 or node.depth >= max_depth:
         return heuristic(node)  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else:
+        counter_move_list = [0,2,1,4,3] 
         if player == 0:
             v = - np.inf
             children = node.compute_and_get_children()
+            # if the node is not the root and the previous move was not a stay then we remove the countermove associated from the possible next moves
+            if node.move != None and node.move != 0 and len(children) != 1:
+                for child in children:
+                    if child.move == counter_move_list[node.move]:
+                        children.remove(child)
+                        break
             
             # Move ordering
             children_score = [-np.inf] * len(children)
@@ -116,6 +124,12 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
         else:
             v = np.inf
             children = node.compute_and_get_children()
+            # if the node is not the root and the previous move was not a stay then we remove the countermove associated from the possible next moves
+            if node.move != None and node.move != 0 and len(children) != 1:
+                for child in children:
+                    if child.move == counter_move_list[node.move]:
+                        children.remove(child)
+                        break
 
             # Move ordering
             children_score = [-np.inf] * len(children)
@@ -151,7 +165,7 @@ def heuristic(node):
     curr_state = node.state
     curr_score = curr_state.player_scores[0] - curr_state.player_scores[1]
     
-    if sum(list(curr_state.fish_positions.keys())) == 0:
+    if len(list(curr_state.fish_positions.keys())) == 0:
         return curr_score
     
     fish_caught_by_MAX = curr_state.player_caught[0]
@@ -176,7 +190,7 @@ def heuristic_enriched(node):
     curr_state = node.state
     curr_score = curr_state.player_scores[0] - curr_state.player_scores[1]
     
-    if sum(list(curr_state.fish_positions.keys())) == 0:
+    if len(list(curr_state.fish_positions.keys())) == 0:
         return curr_score
     
     fish_caught_by_MAX = curr_state.player_caught[0]
