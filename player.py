@@ -131,7 +131,7 @@ def heuristic(node):
     fish_caught_by_MAX = curr_state.player_caught[0]
     fish_caught_by_MIN = curr_state.player_caught[1]
 
-    closests_fishes = get_closest_fish(curr_state)
+    closests_fishes = get_closest_fish_for_loop(curr_state)
     if fish_caught_by_MAX != -1:
         curr_score += curr_state.fish_scores[fish_caught_by_MAX]
     else:
@@ -140,14 +140,14 @@ def heuristic(node):
         curr_score -= curr_state.fish_scores[fish_caught_by_MIN]
     else: 
         curr_score -= curr_state.fish_scores[closests_fishes[1][0]] * ((19+10) - closests_fishes[1][1]) / (19+10)
-
+    
     return curr_score
 
 def norm_distance(position_array, p):
     """
     Calculate the norm between 2 points in 2D
     """
-    return abs(position_array[:, 1]-p[1]) + abs(position_array[:, 0]-p[0])
+    return np.abs(position_array[:, 1]-p[1]) + np.abs(position_array[:, 0]-p[0])
 
 def norm_distance_for_all_fishes(state, player):
     """
@@ -172,3 +172,37 @@ def get_closest_fish(state):
     ind_closest_fish_to_MIN = list(state.fish_positions.keys())[dist_to_MIN_argsorted[0]]
     return ((ind_closest_fish_to_MAX, distance_to_MAX[dist_to_MAX_argsorted[0]]), (ind_closest_fish_to_MIN, distance_to_MIN[dist_to_MIN_argsorted[0]]))
 
+def norm_distance_for_loop(position_list, p):
+    """
+    Calculate the norm between 2 points in 2D
+    """
+    distance = []
+    for position in position_list:
+        distance.append(abs(position[0]-p[0]) +  abs(position[1]-p[1]))
+    return distance
+
+def norm_distance_for_all_fishes_for_loop(state, player):
+    """
+    Calculate the distance for all remaining fishes to the position of the player
+    """
+    fish_positions = [[p[0], p[1]] for p in list(state.fish_positions.values())]
+    player_position = state.hook_positions[player]
+    opponent_position = state.hook_positions[abs(player - 1)]
+    if player_position[0] < 9:
+        for i in range(len(fish_positions)):
+            if fish_positions[i][0] > (10 + player_position[0]):
+                fish_positions[i][0] = - fish_positions[i][0]
+    elif player_position[0] > 10:
+        for i in range(len(fish_positions)):
+            if fish_positions[i][0] < (player_position[0] - 10):
+                fish_positions[i][0] = - fish_positions[i][0]
+    return norm_distance_for_loop(fish_positions, player_position)
+
+def get_closest_fish_for_loop(state):
+    distance_to_MAX = norm_distance_for_all_fishes_for_loop(state, 0)
+    distance_to_MIN = norm_distance_for_all_fishes_for_loop(state, 1)
+    dist_min_to_MAX = min(distance_to_MAX)
+    dist_min_to_MIN = min(distance_to_MIN)
+    ind_closest_fish_to_MAX = list(state.fish_positions.keys())[distance_to_MAX.index(dist_min_to_MAX)]  # we take the first one if several fishes are equidistant
+    ind_closest_fish_to_MIN = list(state.fish_positions.keys())[distance_to_MIN.index(dist_min_to_MIN)]
+    return ((ind_closest_fish_to_MAX, dist_min_to_MAX), (ind_closest_fish_to_MIN, dist_min_to_MIN))
