@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import time
+import random
 
 from fishing_game_core.game_tree import Node
 from fishing_game_core.player_utils import PlayerController
@@ -72,11 +73,15 @@ class PlayerControllerMinimax(PlayerController):
         while time.time() - t0 < 0.055 :
             depth_max += 1
             children = initial_tree_node.compute_and_get_children()
-            values = [-np.inf] * len(children)
+            values = np.array([-np.inf] * len(children))
             for i, child in enumerate(children):
                 values[i] = minimax(t0, child, 1, -np.inf, np.inf, depth_max)
             if time.time() - t0 < 0.055:
-                index = values.index(max(values))  # Careful might have several move with same value
+                best_score = max(values)
+                if sum(values == best_score):
+                    index = random.choice(np.where(values == best_score)[0])
+                else:
+                    index = values.index(best_score)
             else :
                 depth_max -= 1
 
@@ -151,49 +156,6 @@ def norm_distance_for_loop(position_list, p):
         distance.append(abs(position[0]-p[0]) +  abs(position[1]-p[1]))
     return distance
 
-def norm_distance_for_all_fishes_for_loop(state, player):
-    """
-    Calculate the distance for all remaining fishes to the position of the player
-    """
-    fish_positions = [[p[0], p[1]] for p in list(state.fish_positions.values())]
-    player_position = state.hook_positions[player]
-    if player_position[0] < 9:
-        for i in range(len(fish_positions)):
-            if fish_positions[i][0] > (10 + player_position[0]):
-                fish_positions[i][0] = - fish_positions[i][0]
-    elif player_position[0] > 10:
-        for i in range(len(fish_positions)):
-            if fish_positions[i][0] < (player_position[0] - 10):
-                fish_positions[i][0] = - fish_positions[i][0]
-    return norm_distance_for_loop(fish_positions, player_position)
-
-def get_closest_fish_for_loop(state):
-    distance_to_MAX = norm_distance_for_all_fishes_for_loop(state, 0)
-    distance_to_MIN = norm_distance_for_all_fishes_for_loop(state, 1)
-    dist_min_to_MAX = min(distance_to_MAX)
-    dist_min_to_MIN = min(distance_to_MIN)
-    ind_closest_fish_to_MAX = list(state.fish_positions.keys())[distance_to_MAX.index(dist_min_to_MAX)]  # we take the first one if several fishes are equidistant
-    ind_closest_fish_to_MIN = list(state.fish_positions.keys())[distance_to_MIN.index(dist_min_to_MIN)]
-    return ((ind_closest_fish_to_MAX, dist_min_to_MAX), (ind_closest_fish_to_MIN, dist_min_to_MIN))
-
-def norm_distance_for_all_fishes_for_loop2(state, player):
-    """
-    Calculate the distance for all remaining fishes to the position of the player
-    """
-    fish_positions = [[p[0], p[1]] for p in list(state.fish_positions.values())]
-    player_position = state.hook_positions[player]
-    opponent_position = state.hook_positions[abs(player - 1)]
-    if player_position[0] < opponent_position[0]:
-        for i in range(len(fish_positions)):
-            if fish_positions[i][0] >= opponent_position[0]:
-                fish_positions[i][0] -= 20
-    elif player_position[0] > opponent_position[0]:
-        for i in range(len(fish_positions)):
-            if fish_positions[i][0] <= opponent_position[0]:
-                fish_positions[i][0] += 20
-    return norm_distance_for_loop(fish_positions, player_position)
-
-
 def get_fish_positions(state):
     fish_scores = state.fish_scores
     fish_positions = state.fish_positions
@@ -208,7 +170,7 @@ def get_fish_positions(state):
     else:
         return list(state.fish_positions.keys()), [[p[0], p[1]] for p in list(state.fish_positions.values())]
 
-def norm_distance_for_all_fishes_for_loop3(state, player):
+def norm_distance_for_all_fishes_for_loop(state, player):
     """
     Calculate the distance for all remaining fishes to the position of the player
     """
@@ -225,44 +187,11 @@ def norm_distance_for_all_fishes_for_loop3(state, player):
                 fish_positions[i][0] += 20
     return fish_real_indexes, norm_distance_for_loop(fish_positions, player_position)
 
-def get_closest_fish_for_loop2(state):
-    fish_real_indexes_MAX, distance_to_MAX = norm_distance_for_all_fishes_for_loop3(state, 0)
-    fish_real_indexes_MIN, distance_to_MIN = norm_distance_for_all_fishes_for_loop3(state, 1)
+def get_closest_fish_for_loop(state):
+    fish_real_indexes_MAX, distance_to_MAX = norm_distance_for_all_fishes_for_loop(state, 0)
+    fish_real_indexes_MIN, distance_to_MIN = norm_distance_for_all_fishes_for_loop(state, 1)
     dist_min_to_MAX = min(distance_to_MAX)
     dist_min_to_MIN = min(distance_to_MIN)
     ind_closest_fish_to_MAX = fish_real_indexes_MAX[distance_to_MAX.index(dist_min_to_MAX)]  # we take the first one if several fishes are equidistant
     ind_closest_fish_to_MIN = fish_real_indexes_MIN[distance_to_MIN.index(dist_min_to_MIN)]
     return ((ind_closest_fish_to_MAX, dist_min_to_MAX), (ind_closest_fish_to_MIN, dist_min_to_MIN))
-
-
-
-
-
-
-
-
-
-
-def get_closest_fish_for_loop_casse(state):
-    ind_and_dist_to_closest_fish = [[0, 0], [0, 0]]
-    for player in [0,1]:
-        fishes_index = list(state.fish_positions.keys())
-        fish_scores = state.fish_scores
-        distance_to_player = norm_distance_for_all_fishes_for_loop2(state, player)
-        dist_min_to_player = min(distance_to_player)
-        list_index = distance_to_player.index(dist_min_to_player)
-        closest_fish_index = fishes_index[list_index]
-        closest_fish_index_init = closest_fish_index
-        dist_min_to_player_init = dist_min_to_player
-        while fish_scores[closest_fish_index] < 0 and len(fishes_index) > 0:
-            distance_to_player.pop(list_index)
-            fishes_index.pop(list_index)
-            if len(fishes_index) > 0:
-                closest_fish_index = closest_fish_index_init
-                dist_min_to_player = dist_min_to_player_init
-            else:
-                dist_min_to_player = min(distance_to_player)
-                list_index = distance_to_player.index(dist_min_to_player)
-                closest_fish_index = fishes_index[list_index]
-        ind_and_dist_to_closest_fish[player] = [closest_fish_index, dist_min_to_player]
-    return ind_and_dist_to_closest_fish
