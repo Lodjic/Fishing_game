@@ -67,7 +67,7 @@ class PlayerControllerMinimax(PlayerController):
         # NOTE: Don't forget to initialize the children of the current node
         #       with its compute_and_get_children() method!
         t0 = time.time()
-        depth_max = 1
+        depth_max = 0
         index = 0
 
         while time.time() - t0 < 0.059 :
@@ -78,10 +78,12 @@ class PlayerControllerMinimax(PlayerController):
                 values[i] = minimax(t0, child, 1, -np.inf, np.inf, depth_max)
             if time.time() - t0 < 0.059:
                 index = values.index(max(values))  # Careful might have several move with same value
+            else :
+                depth_max -= 1
 
             # print(f"Search at depth {depth_max} ended at timestamp : {np.round(time.time() - t0, 6)}s")
         
-        # print(f"Search stop at depth {depth_max} in {np.round(time.time() - t0, 6)}s")
+        print(f"Search stop at depth {depth_max} in {np.round(time.time() - t0, 6)}s")
 
         return ACTION_TO_STR[children[index].move]
 
@@ -98,24 +100,26 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
     elif remaining_fishes == 0 or node.depth >= max_depth:
         return heuristic(node)  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
-    else:
-        counter_move_list = [0,2,1,4,3] 
+    else: 
+        children = node.compute_and_get_children()
+
+        # Removing counter-move nodes
+        counter_move_list = [0,2,1,4,3]
+        # if the node is not the root and the previous move was not a stay then we remove the countermove associated from the possible next moves
+        if node.move != None and node.move != 0 and len(children) != 1:
+            for child in children:
+                if child.move == counter_move_list[node.move]:
+                    children.remove(child)
+                    break
+        
+        # Move ordering
+        children_score = [-np.inf] * len(children)
+        for i, child in enumerate(children) :
+            children_score[i] = heuristic(child)
+
         if player == 0:
             v = - np.inf
-            children = node.compute_and_get_children()
-            # if the node is not the root and the previous move was not a stay then we remove the countermove associated from the possible next moves
-            if node.move != None and node.move != 0 and len(children) != 1:
-                for child in children:
-                    if child.move == counter_move_list[node.move]:
-                        children.remove(child)
-                        break
-            
-            # Move ordering
-            children_score = [-np.inf] * len(children)
-            for i, child in enumerate(children) :
-                children_score[i] = heuristic(child)
-            children = np.array(children)[np.argsort(children_score)[::-1]]
-
+            children = np.array(children)[np.argsort(children_score)[::-1]] # move ordering
             for child in children:
                 v = max(v, minimax(t0, child, 1, alpha, beta, max_depth))
                 alpha = max(alpha, v)
@@ -123,20 +127,7 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
                     break
         else:
             v = np.inf
-            children = node.compute_and_get_children()
-            # if the node is not the root and the previous move was not a stay then we remove the countermove associated from the possible next moves
-            if node.move != None and node.move != 0 and len(children) != 1:
-                for child in children:
-                    if child.move == counter_move_list[node.move]:
-                        children.remove(child)
-                        break
-
-            # Move ordering
-            children_score = [-np.inf] * len(children)
-            for i, child in enumerate(children) :
-                children_score[i] = heuristic(child)
-            children = np.array(children)[np.argsort(children_score)[::-1]]
-
+            children = np.array(children)[np.argsort(children_score)] # move ordering
             for child in children :
                 v = min(v, minimax(t0, child, 0, alpha, beta, max_depth))
                 beta = min(beta, v)
