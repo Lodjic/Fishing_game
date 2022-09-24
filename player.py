@@ -190,8 +190,8 @@ def norm_distance_for_all_fishes_for_loop(state, player):
 def get_closest_fish_for_loop(state):
     fish_real_indexes_MAX, distance_to_MAX = norm_distance_for_all_fishes_for_loop(state, 0)
     fish_real_indexes_MIN, distance_to_MIN = norm_distance_for_all_fishes_for_loop(state, 1)
-    dist_min_to_MAX = min(distance_to_MAX)
-    dist_min_to_MIN = min(distance_to_MIN)
-    ind_closest_fish_to_MAX = fish_real_indexes_MAX[distance_to_MAX.index(dist_min_to_MAX)]  # we take the first one if several fishes are equidistant
-    ind_closest_fish_to_MIN = fish_real_indexes_MIN[distance_to_MIN.index(dist_min_to_MIN)]
-    return ((ind_closest_fish_to_MAX, dist_min_to_MAX), (ind_closest_fish_to_MIN, dist_min_to_MIN))
+    dist_min_to_MAX = min(distance_to_MAX) # we take the first one if several fishes are equidistant
+    dist_min_to_MIN = min(distance_to_MIN) # we take the first one if several fishes are equidistant
+    score_fishes = [state.fish_scores[i] for i in fish_real_indexes_MAX]
+    ind_fish_score_min = fish_real_indexes_MAX[score_fishes.index(min(score_fishes))]
+    return ((ind_fish_score_min, dist_min_to_MAX), (ind_fish_score_min, dist_min_to_MIN))
