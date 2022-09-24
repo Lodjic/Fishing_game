@@ -69,13 +69,14 @@ class PlayerControllerMinimax(PlayerController):
         t0 = time.time()
         depth_max = 0
         index = 0
+        hash_dict = {}
 
         while time.time() - t0 < 0.055 :
             depth_max += 1
             children = initial_tree_node.compute_and_get_children()
             values = np.array([-np.inf] * len(children))
             for i, child in enumerate(children):
-                values[i] = minimax(t0, child, 1, -np.inf, np.inf, depth_max)
+                values[i] = minimax(t0, hash_dict, child, 1, -np.inf, np.inf, depth_max)
             if time.time() - t0 < 0.055:
                 best_score = max(values)
                 if sum(values == best_score):
@@ -93,7 +94,7 @@ class PlayerControllerMinimax(PlayerController):
 
 
 # Calculus fcts
-def minimax(t0, node, player, alpha, beta, max_depth=5):
+def minimax(t0, hash_table, node, player, alpha, beta, max_depth=5):
     curr_state = node.state
     remaining_fishes = len(list(curr_state.fish_positions.keys()))
     # If close to timeout we stop the search :
@@ -101,7 +102,15 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
         return -np.inf
     # if all fishes have been caught :
     elif remaining_fishes == 0 or node.depth >= max_depth:
-        return heuristic(node)  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
+        # To avoid repeated stateswe check if we did not already calculate the value
+        hash_code_state = compute_hash_code(node)
+        if hash_code_state in hash_table:
+            value = hash_table[hash_code_state]
+            return value
+        else :
+            value = heuristic(node)
+            hash_table[hash_code_state] = value
+            return value  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else: 
         children = node.compute_and_get_children()
@@ -109,14 +118,14 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
         if player == 0:
             v = - np.inf
             for child in children:
-                v = max(v, minimax(t0, child, 1, alpha, beta, max_depth))
+                v = max(v, minimax(t0, hash_table, child, 1, alpha, beta, max_depth))
                 alpha = max(alpha, v)
                 if beta <= alpha:
                     break
         else:
             v = np.inf
             for child in children :
-                v = min(v, minimax(t0, child, 0, alpha, beta, max_depth))
+                v = min(v, minimax(t0, hash_table, child, 0, alpha, beta, max_depth))
                 beta = min(beta, v)
                 if beta <= alpha:
                     break
@@ -195,3 +204,9 @@ def get_closest_fish_for_loop(state):
     score_fishes = [state.fish_scores[i] for i in fish_real_indexes_MAX]
     ind_fish_score_min = fish_real_indexes_MAX[score_fishes.index(min(score_fishes))]
     return ((ind_fish_score_min, dist_min_to_MAX), (ind_fish_score_min, dist_min_to_MIN))
+
+def compute_hash_code(node):
+    hash_code = str(node.state.hook_positions[0][0]) + str(node.state.hook_positions[0][1]) + str(node.state.hook_positions[1][0]) + str(node.state.hook_positions[1][1])
+    for i in list(node.state.fish_positions.keys()):
+        hash_code += str(node.state.fish_positions[i][0]) + str(node.state.fish_positions[i][1])
+    return hash_code
