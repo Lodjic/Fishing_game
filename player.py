@@ -70,19 +70,29 @@ class PlayerControllerMinimax(PlayerController):
         depth_max = 0
         index = 0
         hash_dict = {}
+        order = []
+        values = []
+        reordered = False
 
         while time.time() - t0 < 0.055 :
             depth_max += 1
             children = initial_tree_node.compute_and_get_children()
-            values = np.array([-np.inf] * len(children))
+            if len(values) > 0:
+                children = reorder(children, order)
+                reordered = True
+            values = [-np.inf] * len(children)
             for i, child in enumerate(children):
                 values[i] = minimax(t0, hash_dict, child, 1, -np.inf, np.inf, depth_max)
             if time.time() - t0 < 0.055:
                 best_score = max(values)
-                if sum(values == best_score):
+                if len(np.where(values == best_score)[0]):
                     index = random.choice(np.where(values == best_score)[0])
                 else:
                     index = values.index(best_score)
+                action = children[index].move
+                if reordered:
+                    values = reorder(values, argsort(order))
+                order = argsort(values)[::-1]
             else :
                 depth_max -= 1
 
@@ -90,7 +100,7 @@ class PlayerControllerMinimax(PlayerController):
         
         # print(f"Search stop at depth {depth_max} in {np.round(time.time() - t0, 6)}s")
 
-        return ACTION_TO_STR[children[index].move]
+        return ACTION_TO_STR[action]
 
 
 # Calculus fcts
@@ -115,8 +125,14 @@ def minimax(t0, hash_table, node, player, alpha, beta, max_depth=5):
     else: 
         children = node.compute_and_get_children()
 
+        # Move ordering
+        children_score = [-np.inf] * len(children)
+        for i, child in enumerate(children) :
+            children_score[i] = heuristic(child)
+
         if player == 0:
             v = - np.inf
+            children = reorder(children, argsort(children_score)[::-1])
             for child in children:
                 v = max(v, minimax(t0, hash_table, child, 1, alpha, beta, max_depth))
                 alpha = max(alpha, v)
@@ -124,6 +140,7 @@ def minimax(t0, hash_table, node, player, alpha, beta, max_depth=5):
                     break
         else:
             v = np.inf
+            children = reorder(children, argsort(children_score))
             for child in children :
                 v = min(v, minimax(t0, hash_table, child, 0, alpha, beta, max_depth))
                 beta = min(beta, v)
@@ -210,3 +227,9 @@ def compute_hash_code(node):
     for i in list(node.state.fish_positions.keys()):
         hash_code += str(node.state.fish_positions[i][0]) + str(node.state.fish_positions[i][1])
     return hash_code
+
+def argsort(seq):
+    return sorted(range(len(seq)), key=seq.__getitem__)
+
+def reorder(list, order_seq):
+    return [list[i] for i in order_seq]
