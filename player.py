@@ -74,15 +74,17 @@ class PlayerControllerMinimax(PlayerController):
         while time.time() - t0 < 0.055 :
             depth_max += 1
             children = initial_tree_node.compute_and_get_children()
-            values = np.array([-np.inf] * len(children))
+            values = [-np.inf] * len(children)
             for i, child in enumerate(children):
                 values[i] = minimax(t0, hash_dict, child, 1, -np.inf, np.inf, depth_max)
             if time.time() - t0 < 0.055:
                 best_score = max(values)
-                if sum(values == best_score):
-                    index = random.choice(np.where(values == best_score)[0])
+                best_score_indexes = where_equal(values, best_score)
+                if len(best_score_indexes) > 1:
+                    index = random.choice(best_score_indexes)
                 else:
                     index = values.index(best_score)
+                action = children[index].move
             else :
                 depth_max -= 1
 
@@ -90,7 +92,7 @@ class PlayerControllerMinimax(PlayerController):
         
         # print(f"Search stop at depth {depth_max} in {np.round(time.time() - t0, 6)}s")
 
-        return ACTION_TO_STR[children[index].move]
+        return ACTION_TO_STR[action]
 
 
 # Calculus fcts
@@ -210,3 +212,10 @@ def compute_hash_code(node):
     for i in list(node.state.fish_positions.keys()):
         hash_code += str(node.state.fish_positions[i][0]) + str(node.state.fish_positions[i][1])
     return hash_code
+
+def where_equal(l, condition):
+    indexes = []
+    for i in range(len(l)):
+        if l[i] == condition:
+            indexes.append(i)
+    return indexes
