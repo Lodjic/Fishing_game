@@ -112,7 +112,7 @@ def minimax(t0, hash_table, node, player, alpha, beta, max_depth=5):
         else :
             value = heuristic(node)
             hash_table[hash_code_state] = value
-            return value  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
+            return value  # terminal leaf of the tree because end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else: 
         children = node.compute_and_get_children()
