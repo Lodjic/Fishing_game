@@ -70,14 +70,19 @@ class PlayerControllerMinimax(PlayerController):
         depth_max = 0
         index = 0
         hash_dict = {}
+        ordering_dict = {}
         values = []
+        reordered = False
 
         while time.time() - t0 < 0.055 :
             depth_max += 1
             children = initial_tree_node.compute_and_get_children()
+            if len(values) > 0:
+                children = reorder(children, ordering_dict["root"])
+                reordered = True
             values = [-np.inf] * len(children)
             for i, child in enumerate(children):
-                values[i] = minimax(t0, hash_dict, child, 1, -np.inf, np.inf, depth_max)
+                values[i] = minimax(t0, hash_dict, ordering_dict, child, 1, -np.inf, np.inf, depth_max)
             if time.time() - t0 < 0.055:
                 best_score = max(values)
                 best_score_indexes = where_equal(values, best_score)
@@ -86,6 +91,9 @@ class PlayerControllerMinimax(PlayerController):
                 else:
                     index = values.index(best_score)
                 action = children[index].move
+                if reordered:
+                    values = reorder(values, argsort(ordering_dict["root"]))
+                ordering_dict["root"] = argsort(values)[::-1]
             else :
                 depth_max -= 1
 
@@ -97,9 +105,10 @@ class PlayerControllerMinimax(PlayerController):
 
 
 # Calculus fcts
-def minimax(t0, hash_table, node, player, alpha, beta, max_depth=5):
+def minimax(t0, hash_table, ordering_dict, node, player, alpha, beta, max_depth=5):
     curr_state = node.state
     remaining_fishes = len(list(curr_state.fish_positions.keys()))
+    node_id = get_node_id(node)
     # If close to timeout we stop the search :
     if time.time() - t0 > 0.055:
         return -np.inf
@@ -119,26 +128,35 @@ def minimax(t0, hash_table, node, player, alpha, beta, max_depth=5):
         children = node.compute_and_get_children()
 
         # Move ordering
-        children_score = [-np.inf] * len(children)
-        for i, child in enumerate(children) :
-            children_score[i] = heuristic(child)
+        if node_id in ordering_dict and len(children) > 1:
+            children = reorder(children, ordering_dict[node_id])
 
         if player == 0:
-            v = - np.inf
-            children = reorder(children, argsort(children_score)[::-1])
-            for child in children:
-                v = max(v, minimax(t0, hash_table, child, 1, alpha, beta, max_depth))
+            v = -np.inf
+            values = [-np.inf] * len(children)
+            for i, child in enumerate(children):
+                value = minimax(t0, hash_table, ordering_dict, child, 1, alpha, beta, max_depth)
+                values[i] = value
+                v = max(v, value)
                 alpha = max(alpha, v)
                 if beta <= alpha:
                     break
+            if node_id in ordering_dict:
+                values = reorder(values, argsort(ordering_dict[node_id]))
+            ordering_dict[node_id] = argsort(values)[::-1]
         else:
             v = np.inf
-            children = reorder(children, argsort(children_score))
-            for child in children :
-                v = min(v, minimax(t0, hash_table, child, 0, alpha, beta, max_depth))
+            values = [np.inf] * len(children)
+            for i, child in enumerate(children) :
+                value = minimax(t0, hash_table, ordering_dict, child, 0, alpha, beta, max_depth)
+                values[i] = value
+                v = min(v, value)
                 beta = min(beta, v)
                 if beta <= alpha:
                     break
+            if node_id in ordering_dict:
+                values = reorder(values, argsort(ordering_dict[node_id]))
+            ordering_dict[node_id] = argsort(values)
         return v
 
 def heuristic(node):
@@ -220,6 +238,14 @@ def compute_hash_code(node):
     for i in list(node.state.fish_positions.keys()):
         hash_code += str(node.state.fish_positions[i][0]) + str(node.state.fish_positions[i][1])
     return hash_code
+
+def get_node_id(node):
+    id = ""
+    curr_node = node
+    for i in range(node.depth):
+        id += str(curr_node.move)
+        curr_node = curr_node.parent
+    return id
 
 def argsort(seq):
     return sorted(range(len(seq)), key=seq.__getitem__)
