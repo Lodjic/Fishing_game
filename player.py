@@ -101,7 +101,7 @@ def minimax(t0, node, player, alpha, beta, max_depth=5):
         return -np.inf
     # if all fishes have been caught :
     elif remaining_fishes == 0 or node.depth >= max_depth:
-        return heuristic(node)  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
+        return heuristic(node)  # terminal leaf of the tree because end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else: 
         children = node.compute_and_get_children()
