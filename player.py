@@ -70,29 +70,22 @@ class PlayerControllerMinimax(PlayerController):
         depth_max = 0
         index = 0
         hash_dict = {}
-        order = []
         values = []
-        reordered = False
 
         while time.time() - t0 < 0.055 :
             depth_max += 1
             children = initial_tree_node.compute_and_get_children()
-            if len(values) > 0:
-                children = reorder(children, order)
-                reordered = True
             values = [-np.inf] * len(children)
             for i, child in enumerate(children):
                 values[i] = minimax(t0, hash_dict, child, 1, -np.inf, np.inf, depth_max)
             if time.time() - t0 < 0.055:
                 best_score = max(values)
-                if len(np.where(values == best_score)[0]):
-                    index = random.choice(np.where(values == best_score)[0])
+                best_score_indexes = where_equal(values, best_score)
+                if len(best_score_indexes) > 1:
+                    index = random.choice(best_score_indexes)
                 else:
                     index = values.index(best_score)
                 action = children[index].move
-                if reordered:
-                    values = reorder(values, argsort(order))
-                order = argsort(values)[::-1]
             else :
                 depth_max -= 1
 
@@ -120,7 +113,7 @@ def minimax(t0, hash_table, node, player, alpha, beta, max_depth=5):
         else :
             value = heuristic(node)
             hash_table[hash_code_state] = value
-            return value  # end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
+            return value  # terminal leaf of the tree because end of the game (real utility function) or max_depth reached (approxiamtion through heuristic)
 
     else: 
         children = node.compute_and_get_children()
@@ -233,3 +226,10 @@ def argsort(seq):
 
 def reorder(list, order_seq):
     return [list[i] for i in order_seq]
+
+def where_equal(l, condition):
+    indexes = []
+    for i in range(len(l)):
+        if l[i] == condition:
+            indexes.append(i)
+    return indexes
