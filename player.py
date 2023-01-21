@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import random
 
 from fishing_game_core.game_tree import Node
